@@ -2,7 +2,9 @@
 // Node.js 18+ (global fetch available)
 // This bot polls Twitch API for a list of logins and sends a message to a Telegram
 
-require('dotenv').config(); // loads .env from project root
+if (!process.env.RAILWAY_ENVIRONMENT && !process.env.RAILWAY_PROJECT_ID) { // loads .env from project root
+  require('dotenv').config();
+} 
 
 // --- self test: send a Telegram message and exit if SELF_TEST=1 ---
 if (process.env.SELF_TEST === '1') {
