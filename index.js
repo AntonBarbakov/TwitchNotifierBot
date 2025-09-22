@@ -124,44 +124,34 @@ async function getLiveStreams(userIds) {
 
 // --- 8) Send a message to Telegram ---
 // `TELEGRAM_CHAT_ID` can be numeric (-100...) or string "@channel_username".
-async function tgSend(text, disablePreview = false) {
-  const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
+
+async function tgSendStream(stream, disablePreview = false) {
+  const thumb = (stream.thumbnail_url || "")
+    .replace("{width}", "640")
+    .replace("{height}", "360");
+
+  const caption =
+    `🔴 ${escapeHtml(stream.user_name)} ведет стримчанский!\n` +
+    `🎮 ${escapeHtml(stream.game_name)}\n` +
+    `📝 ${escapeHtml(stream.title)}\n` +
+    `▶️ Запрыгиваем здесь https://twitch.tv/${stream.user_login}`;
+
+  const url = `https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/sendPhoto`;
   const res = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      chat_id: TELEGRAM_CHAT_ID,
-      text,
+      chat_id: process.env.TELEGRAM_CHAT_ID,
+      photo: thumb,
+      caption,
       parse_mode: "HTML",
       disable_web_page_preview: disablePreview,
     }),
   });
+
   if (!res.ok) {
     console.error("Telegram error:", await res.text());
   }
-}
-
-// --- 9) Human-friendly message formatting for a Twitch stream object ---
-function formatMsg(s) {
-  const user = s.user_name || "";
-  const login = s.user_login || "";
-  const title = s.title || "";
-  const game = s.game_name || "Unknown game";
-  const url = `https://twitch.tv/${login}`;
-  const started = s.started_at || "";
-  const viewers = s.viewer_count || 0;
-
-  // Twitch thumbnail uses placeholders {width} and {height}
-  const thumb = (s.thumbnail_url || "").replace("{width}", "1280").replace("{height}", "720");
-
-  return (
-    `🔴 <b>${escapeHtml(user)}</b> ведет стримчанский!\n` +
-    `🎮 <b>${escapeHtml(game)}</b>\n` +
-    `📝 ${escapeHtml(title)}\n` +
-    `👥 Viewers: ${viewers}\n` +
-    `▶️ Запрыгиваем здесь ${url}\n` +
-    `${thumb}`
-  );
 }
 
 // --- 10) Basic HTML escaping for Telegram parse_mode=HTML ---
@@ -210,7 +200,7 @@ async function main() {
       for (const uid of ids) {
         const isLive = Boolean(liveNow[uid]);
         if (isLive && !wasLive[uid]) {
-          await tgSend(formatMsg(liveNow[uid]));
+          await tgSendStream(liveNow[uid]);
         }
         wasLive[uid] = isLive;
       }
