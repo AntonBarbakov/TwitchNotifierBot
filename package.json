@@ -1,0 +1,20 @@
+{
+  "name": "twitchnotifierbot",
+  "version": "1.0.0",
+  "description": "![Node.js](https://img.shields.io/badge/Node.js-18+-green?logo=node.js)\r ![Telegram Bot](https://img.shields.io/badge/Telegram-Bot-blue?logo=telegram)\r ![Twitch API](https://img.shields.io/badge/Twitch-API-purple?logo=twitch)",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/AntonBarbakov/TwitchNotifierBot.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/AntonBarbakov/TwitchNotifierBot/issues"
+  },
+  "homepage": "https://github.com/AntonBarbakov/TwitchNotifierBot#readme"
+}
