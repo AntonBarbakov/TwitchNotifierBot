@@ -4,6 +4,22 @@
 
 require('dotenv').config(); // loads .env from project root
 
+// --- self test: send a Telegram message and exit if SELF_TEST=1 ---
+if (process.env.SELF_TEST === '1') {
+  const url = `https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/sendMessage`;
+  fetch(url, {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({
+      chat_id: process.env.TELEGRAM_CHAT_ID,
+      text: '🧪 Bot SELF_TEST: Telegram looks good',
+    })
+  })
+  .then(r => r.text())
+  .then(t => { console.log('Telegram response:', t); process.exit(0); })
+  .catch(e => { console.error(e); process.exit(1); });
+}
+
 // --- 1) Load environment variables ---
 const {
   TELEGRAM_BOT_TOKEN,      // Bot token from @BotFather
@@ -67,7 +83,7 @@ async function twitchHeaders() {
 async function getUserIds(logins) {
   // Returns a map: { loginLowerCase: user_id }
   const map = {};
-  for (let i = 0; i < logins.length; i += 100) {
+  for (let i = 0; i < logins.length; i += 100) { // max 100 twitch users per request
     const batch = logins.slice(i, i + 100);
     const qs = batch.map(l => `login=${encodeURIComponent(l)}`).join("&");
     const res = await fetch(`https://api.twitch.tv/helix/users?${qs}`, {
@@ -139,12 +155,11 @@ function formatMsg(s) {
   const thumb = (s.thumbnail_url || "").replace("{width}", "1280").replace("{height}", "720");
 
   return (
-    `🔴 <b>${escapeHtml(user)}</b> is live!\n` +
+    `🔴 <b>${escapeHtml(user)}</b> ведет стримчанский!\n` +
     `🎮 <b>${escapeHtml(game)}</b>\n` +
     `📝 ${escapeHtml(title)}\n` +
     `👥 Viewers: ${viewers}\n` +
-    `⏱️ Started: ${started}\n` +
-    `▶️ ${url}\n` +
+    `▶️ Запрыгиваем здесь ${url}\n` +
     `${thumb}`
   );
 }

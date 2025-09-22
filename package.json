@@ -16,5 +16,8 @@
   "bugs": {
     "url": "https://github.com/AntonBarbakov/TwitchNotifierBot/issues"
   },
-  "homepage": "https://github.com/AntonBarbakov/TwitchNotifierBot#readme"
+  "homepage": "https://github.com/AntonBarbakov/TwitchNotifierBot#readme",
+  "dependencies": {
+    "dotenv": "^17.2.2"
+  }
 }
