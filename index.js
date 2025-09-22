@@ -1,10 +1,6 @@
 // ==== index.js ====
 // Node.js 18+ (global fetch available)
 // This bot polls Twitch API for a list of logins and sends a message to a Telegram
-// chat/group/channel when a stream goes live.
-//
-// IMPORTANT: This version loads secrets from a local .env file stored in the repo.
-// Keep the repository PRIVATE to avoid leaking tokens.
 
 require('dotenv').config(); // loads .env from project root
 

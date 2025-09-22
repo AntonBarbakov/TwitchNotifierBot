@@ -21,3 +21,14 @@ No database required. Runs on any VPS or even a local machine.
   - Viewer count
   - Twitch link
   - Thumbnail image 
+
+  Example notification:
+
+🔴 Shroud is live!
+🎮 Counter-Strike 2
+📝 "Late Night Games"
+👥 Viewers: 32,000
+⏱️ Started: 2025-09-21T03:41:11Z
+▶️ https://twitch.tv/shroud
+
+<thumbnail image>
