@@ -1,10 +1,10 @@
 {
   "name": "twitchnotifierbot",
   "version": "1.0.0",
-  "description": "![Node.js](https://img.shields.io/badge/Node.js-18+-green?logo=node.js)\r ![Telegram Bot](https://img.shields.io/badge/Telegram-Bot-blue?logo=telegram)\r ![Twitch API](https://img.shields.io/badge/Twitch-API-purple?logo=twitch)",
+  "description": "A bot that notifies a Telegram channel when specified Twitch streamers go live.",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node index.js"
   },
   "repository": {
     "type": "git",
@@ -19,5 +19,6 @@
   "homepage": "https://github.com/AntonBarbakov/TwitchNotifierBot#readme",
   "dependencies": {
     "dotenv": "^17.2.2"
-  }
+  },
+  "engines": { "node": ">=18 <23" }
 }
