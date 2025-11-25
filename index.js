@@ -4,22 +4,6 @@
 
 if (!process.env.RAILWAY_ENVIRONMENT && !process.env.RAILWAY_PROJECT_ID) { // loads .env from project root
   require('dotenv').config();
-} 
-
-// --- self test: send a Telegram message and exit if SELF_TEST=1 ---
-if (process.env.SELF_TEST === '1') {
-  const url = `https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/sendMessage`;
-  fetch(url, {
-    method: 'POST',
-    headers: {'Content-Type':'application/json'},
-    body: JSON.stringify({
-      chat_id: process.env.TELEGRAM_CHAT_ID,
-      text: '🧪 Bot SELF_TEST: Telegram looks good',
-    })
-  })
-  .then(r => r.text())
-  .then(t => { console.log('Telegram response:', t); process.exit(0); })
-  .catch(e => { console.error(e); process.exit(1); });
 }
 
 // --- 1) Load environment variables ---
@@ -32,13 +16,20 @@ const {
   POLL_SECONDS = "60",     // Poll interval in seconds (default: 60)
 } = process.env;
 
+// Load helper methods (moved to a separate file)
+const {
+  requireEnv,
+  getAppToken,
+  twitchHeaders,
+  getUserIds,
+  getLiveStreams,
+  tgSendStream,
+  escapeHtml,
+  deleteTelegramMessage,
+  startDeletionLoop,
+} = require('./methods');
+
 // --- 2) Validate required envs early ---
-function requireEnv(name, value) {
-  if (!value || String(value).trim() === "") {
-    console.error(`❗ Missing required env: ${name}`);
-    process.exit(1);
-  }
-}
 requireEnv("TELEGRAM_BOT_TOKEN", TELEGRAM_BOT_TOKEN);
 requireEnv("TELEGRAM_CHAT_ID", TELEGRAM_CHAT_ID);
 requireEnv("TWITCH_CLIENT_ID", TWITCH_CLIENT_ID);
@@ -46,131 +37,20 @@ requireEnv("TWITCH_CLIENT_SECRET", TWITCH_CLIENT_SECRET);
 requireEnv("TWITCH_LOGINS", TWITCH_LOGINS);
 
 // --- 3) State for Twitch App Access Token ---
-let TWITCH_TOKEN = null;          // current bearer token
-let TWITCH_TOKEN_EXPIRES_AT = 0;  // epoch ms when token should be refreshed
-
-// --- 4) Acquire/refresh Twitch App Access Token (client_credentials flow) ---
-async function getAppToken() {
-  const res = await fetch("https://id.twitch.tv/oauth2/token", {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({
-      client_id: TWITCH_CLIENT_ID,
-      client_secret: TWITCH_CLIENT_SECRET,
-      grant_type: "client_credentials",
-    }),
-  });
-  if (!res.ok) throw new Error(`Twitch token error: ${res.status} ${await res.text()}`);
-
-  const data = await res.json();
-  TWITCH_TOKEN = data.access_token;
-
-  // Refresh 5 minutes before actual expiration to be safe.
-  const ttlSec = Number(data.expires_in || 3600);
-  TWITCH_TOKEN_EXPIRES_AT = Date.now() + Math.max(ttlSec - 300, 300) * 1000;
-}
-
-// --- 5) Build headers for Twitch Helix calls, refreshing token when needed ---
-async function twitchHeaders() {
-  if (!TWITCH_TOKEN || Date.now() > TWITCH_TOKEN_EXPIRES_AT) {
-    await getAppToken();
-  }
-  return {
-    "Client-ID": TWITCH_CLIENT_ID,
-    "Authorization": `Bearer ${TWITCH_TOKEN}`,
-  };
-}
-
-// --- 6) Resolve Twitch logins -> user IDs (done once on startup) ---
-async function getUserIds(logins) {
-  // Returns a map: { loginLowerCase: user_id }
-  const map = {};
-  for (let i = 0; i < logins.length; i += 100) { // max 100 twitch users per request
-    const batch = logins.slice(i, i + 100);
-    const qs = batch.map(l => `login=${encodeURIComponent(l)}`).join("&");
-    const res = await fetch(`https://api.twitch.tv/helix/users?${qs}`, {
-      headers: await twitchHeaders(),
-    });
-    if (!res.ok) throw new Error(`users error: ${res.status} ${await res.text()}`);
-
-    const data = await res.json();
-    for (const u of data.data || []) {
-      map[u.login.toLowerCase()] = u.id;
-    }
-  }
-  return map;
-}
-
-// --- 7) Query who is LIVE for a list of user IDs ---
-// Returns { user_id: streamObject } only for users currently live.
-async function getLiveStreams(userIds) {
-  const live = {};
-  if (!userIds.length) return live;
-
-  for (let i = 0; i < userIds.length; i += 100) {
-    const batch = userIds.slice(i, i + 100);
-    const qs = batch.map(id => `user_id=${id}`).join("&");
-    const res = await fetch(`https://api.twitch.tv/helix/streams?${qs}`, {
-      headers: await twitchHeaders(),
-    });
-    if (!res.ok) throw new Error(`streams error: ${res.status} ${await res.text()}`);
-
-    const data = await res.json();
-    for (const s of data.data || []) {
-      // s.type === "live"
-      live[s.user_id] = s;
-    }
-  }
-  return live;
-}
-
-// --- 8) Send a message to Telegram ---
-// `TELEGRAM_CHAT_ID` can be numeric (-100...) or string "@channel_username".
-
-async function tgSendStream(stream, disablePreview = false) {
-  const thumb = (stream.thumbnail_url || "")
-    .replace("{width}", "640")
-    .replace("{height}", "360");
-
-  const caption =
-    `🔴 ${escapeHtml(stream.user_name)} ведет стримчанский!\n` +
-    `🎮 ${escapeHtml(stream.game_name)}\n` +
-    `📝 ${escapeHtml(stream.title)}\n` +
-    `▶️ Запрыгиваем здесь https://twitch.tv/${stream.user_login}`;
-
-  const url = `https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/sendPhoto`;
-  const res = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      chat_id: process.env.TELEGRAM_CHAT_ID,
-      photo: thumb,
-      caption,
-      parse_mode: "HTML",
-      disable_web_page_preview: disablePreview,
-    }),
-  });
-
-  if (!res.ok) {
-    console.error("Telegram error:", await res.text());
-  }
-}
-
-// --- 10) Basic HTML escaping for Telegram parse_mode=HTML ---
-function escapeHtml(str) {
-  return String(str)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
-}
+// Helper methods (Twitch/Telegram interactions and cleanup) are provided
+// by the separate module ./methods.js which is required near the top of the file.
 
 // --- 11) Main loop: resolve IDs, then poll forever ---
 async function main() {
   console.log("Starting twitch2telegram (Node)…");
 
+  // Start periodic deletion loop that removes messages older than one hour.
+  // Note: deleting messages in channels requires the bot to be an admin.
+  startDeletionLoop();
+
   const logins = TWITCH_LOGINS.split(",")
     .map(s => s.trim().toLowerCase())
-    .filter(Boolean);
+    .filter(Boolean); // remove empty strings
 
   if (!logins.length) {
     console.error("No valid Twitch logins in TWITCH_LOGINS.");
