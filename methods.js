@@ -176,13 +176,13 @@ async function deleteTelegramMessage(chatId, messageId) {
 }
 
 function startDeletionLoop() {
-  const HOUR = 60 * 60 * 1000;
+  const threeHOURs = 180 * 60 * 1000;
 
-  // Run every hour and delete messages older than one hour.
+  // Run every 3 hours and delete messages older than 3 hours.
   setInterval(async () => {
     const now = Date.now();
-    const cutoff = now - HOUR;
-    // Find messages that are older than an hour
+    const cutoff = now - threeHOURs;
+    // Find messages that are older than 3 hours
     const toDelete = sentMessages.filter(m => m.sentAt <= cutoff);
     if (!toDelete.length) return;
 
@@ -196,7 +196,7 @@ function startDeletionLoop() {
       const idx = sentMessages.findIndex(x => x.messageId === m.messageId && x.chatId === m.chatId);
       if (idx !== -1) sentMessages.splice(idx, 1);
     }
-  }, HOUR);
+  }, threeHOURs);
 }
 
 module.exports = {

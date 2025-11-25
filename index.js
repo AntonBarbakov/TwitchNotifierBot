@@ -20,12 +20,9 @@ const {
 const {
   requireEnv,
   getAppToken,
-  twitchHeaders,
   getUserIds,
   getLiveStreams,
   tgSendStream,
-  escapeHtml,
-  deleteTelegramMessage,
   startDeletionLoop,
 } = require('./methods');
 
