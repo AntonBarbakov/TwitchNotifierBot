@@ -1,4 +1,3 @@
-// ==== index.js ====
 // Node.js 18+ (global fetch available)
 // This bot polls Twitch API for a list of logins and sends a message to a Telegram
 
@@ -6,7 +5,7 @@ if (!process.env.RAILWAY_ENVIRONMENT && !process.env.RAILWAY_PROJECT_ID) { // lo
   require('dotenv').config();
 }
 
-// --- 1) Load environment variables ---
+// Load environment variables ---
 const {
   TELEGRAM_BOT_TOKEN,      // Bot token from @BotFather
   TELEGRAM_CHAT_ID,        // Target chat ID (e.g., -100123...), or @channel_username
@@ -26,18 +25,21 @@ const {
   startDeletionLoop,
 } = require('./methods');
 
-// --- 2) Validate required envs early ---
+// Validate required envs early ---
 requireEnv("TELEGRAM_BOT_TOKEN", TELEGRAM_BOT_TOKEN);
 requireEnv("TELEGRAM_CHAT_ID", TELEGRAM_CHAT_ID);
 requireEnv("TWITCH_CLIENT_ID", TWITCH_CLIENT_ID);
 requireEnv("TWITCH_CLIENT_SECRET", TWITCH_CLIENT_SECRET);
 requireEnv("TWITCH_LOGINS", TWITCH_LOGINS);
 
-// --- 3) State for Twitch App Access Token ---
-// Helper methods (Twitch/Telegram interactions and cleanup) are provided
-// by the separate module ./methods.js which is required near the top of the file.
-
-// --- 11) Main loop: resolve IDs, then poll forever ---
+/**
+ * Main entrypoint for the bot. Resolves Twitch user IDs from configured
+ * logins, then enters a polling loop that periodically checks which users
+ * are live and sends notifications to Telegram when a user starts streaming.
+ * Also starts a background cleanup loop to remove old bot messages from
+ * Telegram.
+ * @returns {Promise<void>} Resolves when the bot shuts down (normally or via signal).
+ */
 async function main() {
   console.log("Starting twitch2telegram (Node)…");
 
@@ -95,7 +97,7 @@ async function main() {
   process.exit(0);
 }
 
-// --- 12) Kick off ---
+// KICK OFF
 main().catch(err => {
   console.error("Fatal startup error:", err?.message || err);
   process.exit(1);

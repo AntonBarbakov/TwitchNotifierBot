@@ -9,15 +9,24 @@ let TWITCH_TOKEN_EXPIRES_AT = 0;  // epoch ms when token should be refreshed
 // Each entry: { chatId, messageId, sentAt }
 const sentMessages = [];
 
-// --- Validate required envs early ---
+/**
+ * Ensure that a required environment variable is present and non-empty.
+ * @param {string} name Name of the environment variable.
+ * @param {*} value Value of the environment variable to validate.
+ * @returns {void}
+ */
 function requireEnv(name, value) {
   if (!value || String(value).trim() === "") {
-    console.error(`❗ Missing required env: ${name}`);
+    console.error(`Missing required env: ${name}`);
     process.exit(1);
   }
 }
 
-// --- Acquire/refresh Twitch App Access Token (client_credentials flow) ---
+/**
+ * Acquire or refresh the Twitch App Access Token using the client_credentials flow.
+ * Updates internal token state used for subsequent Twitch API requests.
+ * @returns {Promise<void>} Resolves when the token and expiry are updated.
+ */
 async function getAppToken() {
   const res = await fetch("https://id.twitch.tv/oauth2/token", {
     method: "POST",
@@ -38,7 +47,11 @@ async function getAppToken() {
   TWITCH_TOKEN_EXPIRES_AT = Date.now() + Math.max(ttlSec - 300, 300) * 1000;
 }
 
-// --- Build headers for Twitch Helix calls, refreshing token when needed ---
+/**
+ * Return HTTP headers required for Twitch Helix API calls, refreshing the
+ * application token if it is missing or expired.
+ * @returns {Promise<Object>} An object containing `Client-ID` and `Authorization` headers.
+ */
 async function twitchHeaders() {
   if (!TWITCH_TOKEN || Date.now() > TWITCH_TOKEN_EXPIRES_AT) {
     await getAppToken();
@@ -49,7 +62,13 @@ async function twitchHeaders() {
   };
 }
 
-// --- Resolve Twitch logins -> user IDs (done once on startup) ---
+/**
+ * Resolve an array of Twitch login names to their corresponding user IDs.
+ * Splits requests into batches (max 100 per request) and returns a map
+ * where keys are lowercase login names and values are user id strings.
+ * @param {string[]} logins Array of Twitch login names.
+ * @returns {Promise<Record<string,string>>} Map of `loginLowerCase` -> `user_id`.
+ */
 async function getUserIds(logins) {
   // Returns a map: { loginLowerCase: user_id }
   const map = {};
@@ -69,8 +88,13 @@ async function getUserIds(logins) {
   return map;
 }
 
-// --- Query who is LIVE for a list of user IDs ---
-// Returns { user_id: streamObject } only for users currently live.
+/**
+ * Query Twitch for live stream objects for the provided user IDs.
+ * Requests are batched (max 100 ids per request). Returns an object
+ * mapping `user_id` -> `streamObject` only for users currently live.
+ * @param {string[]} userIds Array of Twitch user ID strings.
+ * @returns {Promise<Record<string, Object>>} Map of user_id to stream object for live users.
+ */
 async function getLiveStreams(userIds) {
   const live = {};
   if (!userIds.length) return live;
@@ -92,7 +116,11 @@ async function getLiveStreams(userIds) {
   return live;
 }
 
-// --- Basic HTML escaping for Telegram parse_mode=HTML ---
+/**
+ * Escape HTML special characters to make text safe for Telegram's HTML parse mode.
+ * @param {string} str Input string to escape.
+ * @returns {string} Escaped string safe for Telegram HTML.
+ */
 function escapeHtml(str) {
   return String(str)
     .replace(/&/g, "&amp;")
@@ -100,8 +128,13 @@ function escapeHtml(str) {
     .replace(/>/g, "&gt;");
 }
 
-// --- Send a message to Telegram ---
-// `TELEGRAM_CHAT_ID` can be numeric (-100...) or string "@channel_username".
+/**
+ * Send a photo message to Telegram with stream information and record the
+ * sent message id for later deletion.
+ * @param {Object} stream Twitch stream object containing fields like `thumbnail_url`, `user_name`, `game_name`, `title`, `user_login`.
+ * @param {boolean} [disablePreview=false] Whether to disable the web page preview.
+ * @returns {Promise<number|null>} Telegram `message_id` on success, or `null` on error.
+ */
 async function tgSendStream(stream, disablePreview = false) {
   const thumb = (stream.thumbnail_url || "")
     .replace("{width}", "640")
@@ -155,7 +188,12 @@ async function tgSendStream(stream, disablePreview = false) {
   return messageId;
 }
 
-// --- Telegram deletion helper + hourly cleanup ---
+/**
+ * Delete a specific message from a Telegram chat using the Bot API.
+ * @param {string|number} chatId Chat identifier (numeric like -100... or string @channel).
+ * @param {number} messageId Telegram message id to delete.
+ * @returns {Promise<boolean>} True if deletion was successful, false otherwise.
+ */
 async function deleteTelegramMessage(chatId, messageId) {
   const url = `https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/deleteMessage`;
   try {
@@ -175,6 +213,13 @@ async function deleteTelegramMessage(chatId, messageId) {
   }
 }
 
+/**
+ * Start a background loop that periodically deletes messages older than one hour.
+ * The loop is implemented with `setInterval`. The function returns nothing
+ * (it schedules the background task). If a stopper is required, modify this
+ * implementation to return an interval id or stop function.
+ * @returns {void}
+ */
 function startDeletionLoop() {
   const threeHOURs = 180 * 60 * 1000;
 
